@@ -3,7 +3,7 @@ path = require 'path'
 
 FULL_MID_PATTERN = "^(\\w+(?:/\\w+)+)(?:.js)?$"
 RELATIVE_MID_PATTERN = "^((?:..?/)+(?:\\w+/)*\\w+)(?:.js)?$"
-REQUIRE_PATTERN = "(?:require|define)\\s*\\(\\s*\\[((?:\\s|\\S)+)\\]\\s*,\\s*function\\s*\\(((?:\\s|\\S)+?)\\)"
+REQUIRE_PATTERN = "(?:require|define)\\s*\\(\\s*\\[((?:\\s|\\S)+?)\\]\\s*,\\s*function\\s*\\(((?:\\s|\\S)+?)\\)"
 
 getMid = ->
 	editor = atom.workspace.getActiveTextEditor()
@@ -29,9 +29,19 @@ getModuleMap = ->
 
 getMidFromVariable = ->
 	editor = atom.workspace.getActiveTextEditor()
-	currentWord = editor.getWordUnderCursor()
+	cursor = editor.getLastCursor()
+	currentWordRange = cursor.getCurrentWordBufferRange()
+	# if current word is preceded with '.', current word is not module, try the previous one
+	if editor.getTextInBufferRange([[currentWordRange.start.row, currentWordRange.start.column - 1], currentWordRange.start]) == "."
+		# create new temporary cursor, this will place it after '.'
+		tempCursor = editor.addCursorAtBufferPosition(cursor.getPreviousWordBoundaryBufferPosition())
+		tempCursor.moveToPreviousWordBoundary() # this will move it before '.'
+		moduleName = tempCursor.getCurrentWordPrefix().trim()
+		tempCursor.destroy()
+	else
+		moduleName = editor.getWordUnderCursor()
 	moduleMap = getModuleMap()
-	return moduleMap?[currentWord];
+	return moduleMap?[moduleName];
 
 isFullMid = (mid) ->
 	mid.match FULL_MID_PATTERN
@@ -49,13 +59,13 @@ openFullMid = (mid) ->
 	packageLocation = packages[midParts.shift()]
 	return unless packageLocation
 	fileName = midParts.pop()
-	fileName +=  ".js" unless fileName.endsWith ".js"
+	fileName += ".js" unless fileName.endsWith ".js"
 	fileLocation = path.join(packageLocation, path.join.apply(path, midParts), fileName)
 	atom.workspace.open fileLocation
 
 openRelativeMid = (mid) ->
 	editor = atom.workspace.getActiveTextEditor()
-	mid +=  ".js" unless mid.endsWith ".js"
+	mid += ".js" unless mid.endsWith ".js"
 	atom.workspace.open path.join(path.dirname(editor.getPath()), mid)
 
 goToModule = ->
