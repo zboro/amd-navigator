@@ -5,14 +5,17 @@ FULL_MID_PATTERN = "^(\\w+(?:/\\w+)+)(?:.js)?$"
 RELATIVE_MID_PATTERN = "^((?:..?/)+(?:\\w+/)*\\w+)(?:.js)?$"
 REQUIRE_PATTERN = "(?:require|define)\\s*\\(\\s*\\[((?:\\s|\\S)+?)\\]\\s*,\\s*function\\s*\\(((?:\\s|\\S)+?)\\)"
 
-getMid = ->
+getTarget = ->
 	editor = atom.workspace.getActiveTextEditor()
 	# using screen position and bufferRangeForScopeAtPosition is a workaround for https://github.com/atom/atom/issues/9648
 	cursorPosition = editor.getCursorScreenPosition()
 	midRange = editor.displayBuffer.bufferRangeForScopeAtPosition ".string", cursorPosition
 	return unless midRange
 	mid = editor.getTextInBufferRange editor.bufferRangeForScreenRange midRange
-	mid.substring 1, mid.length - 1 #strip quotes
+
+	return {
+		mid: mid.substring 1, mid.length - 1 #strip quotes
+	}
 
 getModuleMap = ->
 	editor = atom.workspace.getActiveTextEditor()
@@ -27,9 +30,10 @@ getModuleMap = ->
 	moduleMap[alias] = mids[i] for alias, i in aliases
 	return moduleMap
 
-getMidFromVariable = ->
+getTargetFromVariable = ->
 	editor = atom.workspace.getActiveTextEditor()
 	cursor = editor.getLastCursor()
+	currentWord = editor.getWordUnderCursor()
 	currentWordRange = cursor.getCurrentWordBufferRange()
 	# if current word is preceded with '.', current word is not module, try the previous one
 	if editor.getTextInBufferRange([[currentWordRange.start.row, currentWordRange.start.column - 1], currentWordRange.start]) == "."
@@ -37,11 +41,15 @@ getMidFromVariable = ->
 		tempCursor = editor.addCursorAtBufferPosition(cursor.getPreviousWordBoundaryBufferPosition())
 		tempCursor.moveToPreviousWordBoundary() # this will move it before '.'
 		moduleName = tempCursor.getCurrentWordPrefix().trim()
+		functionName = currentWord
 		tempCursor.destroy()
 	else
-		moduleName = editor.getWordUnderCursor()
+		moduleName = currentWord
 	moduleMap = getModuleMap()
-	return moduleMap?[moduleName];
+	return {
+		mid: moduleMap?[moduleName]
+		functionName: functionName
+	}
 
 isFullMid = (mid) ->
 	mid.match FULL_MID_PATTERN
@@ -49,13 +57,13 @@ isFullMid = (mid) ->
 isRelativeMid = (mid) ->
 	mid.match RELATIVE_MID_PATTERN
 
-openFullMid = (mid) ->
+openTargetWithFullMid = (target) ->
 	packages = atom.config.get "amd-navigator.packages"
 	if !packages
 		console.error "Packages not configured."
 		return
 
-	midParts = mid.split "/"
+	midParts = target.mid.split "/"
 	packageLocation = packages[midParts.shift()]
 	return unless packageLocation
 	fileName = midParts.pop()
@@ -63,22 +71,23 @@ openFullMid = (mid) ->
 	fileLocation = path.join(packageLocation, path.join.apply(path, midParts), fileName)
 	atom.workspace.open fileLocation
 
-openRelativeMid = (mid) ->
+openTargetWithRelativeMid = (target) ->
 	editor = atom.workspace.getActiveTextEditor()
+	mid = target.mid
 	mid += ".js" unless mid.endsWith ".js"
 	atom.workspace.open path.join(path.dirname(editor.getPath()), mid)
 
 goToModule = ->
-	# "dojo/Deferred"
-	mid = getMid()
-	unless mid
-		mid = getMidFromVariable()
-	return unless mid
+	# "dojo/DeferredList"
+	target = getTarget()
+	unless target?.mid
+		target = getTargetFromVariable()
+	return unless target?.mid
 
-	if isFullMid(mid)
-		openFullMid(mid)
-	else if isRelativeMid(mid)
-		openRelativeMid(mid)
+	if isFullMid target.mid
+		openTargetWithFullMid target
+	else if isRelativeMid target.mid
+		openTargetWithRelativeMid target
 
 module.exports =
 
