@@ -1,7 +1,7 @@
 {
   "name": "amd-navigator",
   "main": "./index.coffee",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Helps navigating through AMD modules",
   "repository": "https://github.com/zboro/amd-navigator",
   "activationCommands": {
