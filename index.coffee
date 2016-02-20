@@ -47,9 +47,10 @@ getTargetFromVariable = ->
 	else
 		moduleName = currentWord
 	moduleMap = getModuleMap()
+	mid = moduleMap?[moduleName]
 	return {
-		mid: moduleMap?[moduleName]
-		functionName: functionName
+		mid: mid
+		functionName: if mid then functionName else currentWord #if we found no mid, maybe currentWord is function in current file
 	}
 
 isFullMid = (mid) ->
@@ -83,13 +84,15 @@ goToModule = ->
 	target = getTargetFromString()
 	unless target?.mid
 		target = getTargetFromVariable()
-	return unless target?.mid
 
-	openEditor(target)
-	.then((editor) ->
-		if target.functionName
-			goToFunction(editor, target.functionName)
-	)
+	if (target.mid)
+		openEditor(target)
+		.then((editor) ->
+			if target.functionName
+				goToFunction(editor, target.functionName)
+		)
+	else
+		goToFunction(atom.workspace.getActiveTextEditor(), target.functionName)
 
 openEditor = (target) ->
 	if isFullMid(target.mid)
