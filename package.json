@@ -1,14 +1,16 @@
 {
-	"name": "amd-navigator",
-	"main": "./index.coffee",
-	"version": "0.0.0",
-	"description": "Helps navigating through AMD modules",
-	"activationCommands": {
-		"atom-text-editor": "amd-navigator:go-to-module"
-	},
-	"license": "MIT",
-	"engines": {
-		"atom": ">=0.174.0 <2.0.0"
-	},
-	"dependencies": {}
+  "name": "amd-navigator",
+  "main": "./index.coffee",
+  "version": "0.0.0",
+  "description": "Helps navigating through AMD modules",
+  "activationCommands": {
+    "atom-text-editor": "amd-navigator:go-to-module"
+  },
+  "license": "MIT",
+  "engines": {
+    "atom": ">=0.174.0 <2.0.0"
+  },
+  "dependencies": {
+    "symbols-view": "git+https://github.com/atom/symbols-view.git"
+  }
 }

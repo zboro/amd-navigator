@@ -1,5 +1,6 @@
 {CompositeDisposable} = require("atom")
 path = require("path")
+TagGenerator = require("symbols-view/lib/tag-generator")
 
 FULL_MID_PATTERN = "^(\\w+(?:/\\w+)+)(?:.js)?$"
 RELATIVE_MID_PATTERN = "^((?:..?/)+(?:\\w+/)*\\w+)(?:.js)?$"
@@ -21,7 +22,6 @@ getModuleMap = ->
 	editor = atom.workspace.getActiveTextEditor()
 	match = editor.getText().match(REQUIRE_PATTERN)
 	return unless match
-	# mids = (quotedMid = mid.trim() && quotedMid.substring(1, quotedMid.length - 1) for mid in match[1].split(","))
 	mids = match[1].split(",").map((mid) ->
 		mid = mid.trim()
 		mid.substring(1, mid.length - 1)
@@ -70,13 +70,13 @@ openTargetWithFullMid = (target) ->
 	fileName = midParts.pop()
 	fileName += ".js" unless fileName.endsWith(".js")
 	fileLocation = path.join(packageLocation, path.join.apply(path, midParts), fileName)
-	atom.workspace.open(fileLocation)
+	return atom.workspace.open(fileLocation)
 
 openTargetWithRelativeMid = (target) ->
 	editor = atom.workspace.getActiveTextEditor()
 	mid = target.mid
 	mid += ".js" unless mid.endsWith(".js")
-	atom.workspace.open path.join(path.dirname(editor.getPath()), mid)
+	return atom.workspace.open(path.join(path.dirname(editor.getPath()), mid))
 
 goToModule = ->
 	# "dojo/DeferredList"
@@ -85,10 +85,34 @@ goToModule = ->
 		target = getTargetFromVariable()
 	return unless target?.mid
 
-	if isFullMid target.mid
-		openTargetWithFullMid(target)
+	openEditor(target)
+	.then((editor) ->
+		if target.functionName
+			goToFunction(editor, target.functionName)
+	)
+
+openEditor = (target) ->
+	if isFullMid(target.mid)
+		return openTargetWithFullMid(target)
 	else if isRelativeMid(target.mid)
-		openTargetWithRelativeMid(target)
+		return openTargetWithRelativeMid(target)
+
+goToFunction = (editor, functionName) ->
+	getFileTags(editor)
+	.then((tags) ->
+		matchingTags = tags.filter((tag) -> tag.name == functionName)
+		return unless matchingTags.length
+		setPosition(editor, matchingTags[0].position)
+	)
+
+getFileTags = (editor) ->
+	#TODO cache tags? check performance
+	return new TagGenerator(editor.getPath(), "source.js").generate();
+
+setPosition = (editor, position) ->
+	editor.scrollToBufferPosition(position, center: true)
+	editor.setCursorBufferPosition(position)
+	editor.moveToFirstCharacterOfLine()
 
 module.exports =
 
